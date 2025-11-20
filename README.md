@@ -14,14 +14,17 @@ This project showcases:
 
 ```
 .
-├── README.md           # This file
-├── application.md      # Detailed application deployment guide
-├── argocd.md          # Argo CD installation and setup guide
-├── HPA-TESTING.md     # Horizontal Pod Autoscaler testing guide
-├── deployment.yaml    # Kubernetes Deployment manifest (2 replicas)
-├── service.yaml       # Kubernetes Service manifest (NodePort)
-├── hpa.yaml           # Horizontal Pod Autoscaler configuration
-└── load-generator.yaml # Load generator for HPA testing
+├── README.md                  # This file
+├── application.md             # Detailed application deployment guide
+├── argocd.md                  # Argo CD installation and setup guide
+├── HPA-TESTING.md            # Horizontal Pod Autoscaler testing guide
+├── CONDITIONAL-DEPLOYMENT.md  # Guide for conditional resource deployment
+├── base/                      # Core application manifests
+│   ├── deployment.yaml        # Kubernetes Deployment (2 replicas)
+│   ├── service.yaml           # Kubernetes Service (NodePort)
+│   └── hpa.yaml              # Horizontal Pod Autoscaler
+└── testing/                   # Testing resources (optional)
+    └── load-generator.yaml    # Load generator for HPA testing
 ```
 
 ## 🎯 What Gets Deployed
@@ -63,10 +66,10 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 # Login to Argo CD
 argocd login localhost:8080
 
-# Create application
+# Create application (using base directory)
 argocd app create hello-world \
   --repo https://github.com/tecnologiaswebunicen/k8s-app.git \
-  --path . \
+  --path base \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace default
 
@@ -82,8 +85,8 @@ argocd app sync hello-world
 
 **Option C: Direct kubectl (bypasses GitOps)**
 ```bash
-kubectl apply -f deployment.yaml
-kubectl apply -f service.yaml
+kubectl apply -f base/deployment.yaml
+kubectl apply -f base/service.yaml
 ```
 
 ### 3. Access the Application
@@ -105,6 +108,7 @@ kubectl get svc hello-world -o jsonpath='{.spec.ports[0].nodePort}'
 - **[argocd.md](./argocd.md)**: Complete Argo CD installation guide for Docker Desktop
 - **[application.md](./application.md)**: Comprehensive application deployment guide with both CLI and UI methods
 - **[HPA-TESTING.md](./HPA-TESTING.md)**: Guide to testing Horizontal Pod Autoscaler with load generation
+- **[CONDITIONAL-DEPLOYMENT.md](./CONDITIONAL-DEPLOYMENT.md)**: Strategies for conditionally deploying resources (e.g., testing tools)
 
 ## 🔄 GitOps Workflow
 
@@ -116,8 +120,8 @@ kubectl get svc hello-world -o jsonpath='{.spec.ports[0].nodePort}'
 ### Example: Scale the Application
 
 ```bash
-# Edit deployment.yaml - change replicas from 2 to 3
-git add deployment.yaml
+# Edit base/deployment.yaml - change replicas from 2 to 3
+git add base/deployment.yaml
 git commit -m "Scale to 3 replicas"
 git push
 
@@ -160,7 +164,10 @@ for i in {1..10}; do curl -s http://localhost:<NODE_PORT> | grep Hostname; done
 argocd app delete hello-world
 
 # Or directly via kubectl
-kubectl delete -f deployment.yaml -f service.yaml
+kubectl delete -f base/deployment.yaml -f base/service.yaml
+
+# Optional: Delete testing resources
+kubectl delete -f testing/load-generator.yaml
 
 # Optional: Uninstall Argo CD
 kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
