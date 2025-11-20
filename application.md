@@ -73,7 +73,7 @@ Create an Argo CD application pointing to this directory in your Git repository:
 ```sh
 argocd app create hello-world \
   --repo https://github.com/YOUR_USERNAME/YOUR_REPO.git \
-  --path 02-application \
+  --path . \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace default
 ```
