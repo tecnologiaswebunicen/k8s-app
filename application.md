@@ -1,8 +1,8 @@
 # Deploying a Sample Application with Argo CD
 
-This guide demonstrates how to deploy the `tutum/hello-world` application to your Docker Desktop Kubernetes cluster using Argo CD. This builds upon the Argo CD installation from **Step 01**.
+This guide demonstrates how to deploy Google's `hello-app` application to your Docker Desktop Kubernetes cluster using Argo CD. This builds upon the Argo CD installation from **Step 01**.
 
-The `tutum/hello-world` is a simple Docker image that runs an nginx web server displaying hostname and connection information - perfect for demonstrating GitOps workflows with Argo CD.
+The `gcr.io/google-samples/hello-app` is a simple Go application that displays a "Hello, world!" message along with version and hostname information - perfect for demonstrating GitOps workflows with Argo CD.
 
 ---
 
@@ -126,7 +126,7 @@ Open [https://localhost:8080](https://localhost:8080) and login with:
 3. Fill in the **SOURCE** section:
    - **Repository URL**: Your Git repository URL (e.g., `https://github.com/YOUR_USERNAME/YOUR_REPO.git`)
    - **Revision**: `HEAD` or `main`
-   - **Path**: `02-application`
+   - **Path**: `.` (root directory)
 
 4. Fill in the **DESTINATION** section:
    - **Cluster URL**: `https://kubernetes.default.svc`
@@ -157,8 +157,8 @@ All resources should show as **Healthy** and **Synced**.
 If you want to test locally without pushing to Git, you can deploy directly using kubectl:
 
 ```sh
-kubectl apply -f 02-application/deployment.yaml
-kubectl apply -f 02-application/service.yaml
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
 ```
 
 However, this bypasses Argo CD and doesn't demonstrate GitOps principles.
@@ -199,9 +199,13 @@ kubectl port-forward svc/hello-world 8081:80
 Then open [http://localhost:8081](http://localhost:8081) in your browser.
 
 You should see a page displaying:
-- Hostname (pod name)
-- Container information
-- Request details
+```
+Hello, world!
+Version: 1.0.0
+Hostname: hello-world-xxxxxxxxxx-xxxxx
+```
+
+The hostname shows which pod is serving the request. Refresh the page multiple times to see load balancing between the 2 replicas.
 
 **Alternatively**, get the NodePort and access directly:
 ```sh
@@ -209,6 +213,47 @@ kubectl get svc hello-world -o jsonpath='{.spec.ports[0].nodePort}'
 ```
 
 Then visit `http://localhost:<NODE_PORT>` (Docker Desktop forwards NodePorts automatically).
+
+### Test the Application
+
+With port forwarding active, you can test the application:
+
+**Using curl:**
+```sh
+curl http://localhost:8081
+```
+
+You should see output like:
+```
+Hello, world!
+Version: 1.0.0
+Hostname: hello-world-5c6f7d9b8d-abcde
+```
+
+**Test the response:**
+Run this command to see which pod is responding:
+```sh
+for i in {1..10}; do curl -s http://localhost:8081 | grep Hostname; done
+```
+
+> **Note**: When using `kubectl port-forward` to a Service, you'll typically see the same pod responding to all requests because port-forward maintains a persistent connection to a single pod endpoint. The Service's load balancing works correctly for traffic within the cluster or via NodePort.
+
+**Using your browser:**
+1. Open [http://localhost:8081](http://localhost:8081)
+2. You'll see the hostname of the pod serving your request
+3. The app is working correctly even though you see the same pod each time through port-forward
+
+**To see actual load balancing:**
+Access the service via NodePort (which properly load balances):
+```sh
+# Get the NodePort
+kubectl get svc hello-world -o jsonpath='{.spec.ports[0].nodePort}'; echo
+
+# Test load balancing - you'll see different pod hostnames
+for i in {1..20}; do curl -s http://localhost:<NODE_PORT> | grep Hostname; done
+```
+
+Replace `<NODE_PORT>` with the port number from the first command (e.g., 30582). You'll now see requests distributed across both pods!
 
 ---
 
@@ -227,7 +272,7 @@ spec:
 ### Step 2: Commit and Push
 
 ```sh
-git add 02-application/deployment.yaml
+git add deployment.yaml
 git commit -m "Scale hello-world to 3 replicas"
 git push
 ```
@@ -346,7 +391,7 @@ When you're done experimenting:
 ```sh
 argocd app delete hello-world
 # or via kubectl
-kubectl delete -f 02-application/
+kubectl delete -f deployment.yaml -f service.yaml
 ```
 
 ### Stop Port Forwarding
